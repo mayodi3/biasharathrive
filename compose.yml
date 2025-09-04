@@ -1,0 +1,17 @@
+services:
+
+  db:
+    image: postgres
+    restart: always
+    shm_size: 128mb
+    ports:
+      - "5433:5432"
+    volumes:
+     - type: tmpfs
+       target: /dev/shm
+       tmpfs:
+         size: 134217728 
+    environment:
+      POSTGRES_USER: biasharathrive
+      POSTGRES_DB: biasharathrive
+      POSTGRES_PASSWORD: biasharathrive
