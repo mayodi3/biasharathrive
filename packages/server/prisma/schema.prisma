@@ -1,0 +1,318 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Business {
+  id        String  @id @default(cuid())
+  name      String
+  onboarded Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branches     Branch[]
+  subscription Subscription?
+  owner        User          @relation(fields: [ownerId], references: [id])
+  ownerId      String
+}
+
+model Branch {
+  id                String  @id @default(cuid())
+  name              String
+  location          String
+  businessShortCode String
+  isActive          Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  business   Business? @relation(fields: [businessId], references: [id])
+  businessId String?
+  employees  User[]
+  stocks     Stock[]
+  debts      Debt[]
+  expenses   Expense[]
+}
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  hashedPassword String
+  role           UserRole
+  firstName      String?
+  lastName       String?
+  phoneNumber    String?
+  emailVerified  DateTime?
+  image          String?
+  idNumber       String?
+  idImageFront   String?
+  idImageBack    String?
+  isActive       Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts        Account[]
+  sessions        Session[]
+  authenticator   Authenticator[]
+  refreshTokens   RefreshToken[]
+  ownedBusinesses Business[]
+  branch          Branch?         @relation(fields: [branchId], references: [id])
+  branchId        String?
+  Sale            Sale[]
+  Order           Order[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  token     String
+  device    String
+  expiresAt DateTime
+  lastUsed  DateTime?
+
+  createdAt DateTime @default(now())
+
+  User   User?   @relation(fields: [userId], references: [id])
+  userId String?
+}
+
+model Authenticator {
+  credentialID         String  @unique
+  userId               String
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, credentialID])
+}
+
+model Subscription {
+  id          String           @id @default(cuid())
+  tier        SubscriptionTier @default(bronze)
+  freeTrial   Boolean          @default(true)
+  trialExpiry DateTime?
+  expiry      DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payments   Payment[]
+  business   Business? @relation(fields: [businessId], references: [id])
+  businessId String    @unique
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  amount        Float         @default(1)
+  paymentMethod PaymentMethod @default(mpesa)
+  status        PaymentStatus @default(initiated)
+  transactionID String?
+  merchantID    String?
+  checkoutID    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  subscriptionId String?
+  sale           Sale?         @relation(fields: [saleId], references: [id])
+  saleId         String?       @unique
+}
+
+model Stock {
+  id               String  @id @default(cuid())
+  itemName         String
+  itemImageUrl     String?
+  buyingPrice      Float
+  sellingPrice     Float
+  wholesalePrice   Float?
+  quantity         Int
+  lowStockQuantity Int
+  itemCode         String?
+  itemCodeImageUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sales    Sale[]
+  branch   Branch? @relation(fields: [branchId], references: [id])
+  branchId String?
+  order    Order?  @relation(fields: [orderId], references: [id])
+  orderId  String?
+}
+
+model Sale {
+  id       String   @id @default(cuid())
+  quantity Int
+  saleType SaleType @default(retail)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stock   Stock[]
+  soldBy  User?    @relation(fields: [userId], references: [id])
+  userId  String?
+  payment Payment?
+}
+
+model Order {
+  id     String      @id @default(cuid())
+  status OrderStatus @default(pending)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderItems Stock[]
+
+  orderedBy User?   @relation(fields: [userId], references: [id])
+  userId    String?
+}
+
+model Debt {
+  id          String     @id @default(cuid())
+  amount      Float
+  amountPaid  Float      @default(0)
+  debtType    DebtType   @default(lend)
+  debtorName  String
+  debtorPhone String?
+  debtStatus  DebtStatus @default(pending)
+  dueDate     DateTime
+  description String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branch   Branch? @relation(fields: [branchId], references: [id])
+  branchId String?
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  amount      Float
+  description String
+  expenseType ExpenseCategory
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Branch   Branch? @relation(fields: [branchId], references: [id])
+  branchId String?
+}
+
+enum DebtType {
+  lend
+  borrow
+}
+
+enum DebtStatus {
+  paid
+  pending
+}
+
+enum SaleType {
+  wholesale
+  retail
+}
+
+enum UserRole {
+  employee
+  owner
+  supervisor
+  customer
+}
+
+enum SubscriptionTier {
+  bronze
+  silver
+  gold
+}
+
+enum PaymentMethod {
+  mpesa
+  cash
+  credit
+}
+
+enum PaymentStatus {
+  initiated
+  paid
+  failed
+  cancelled
+}
+
+enum ExpenseCategory {
+  // --- Operational ---
+  rent
+  utilities
+  transport
+  maintenance
+  supplies
+  // --- Administrative ---
+  salaries
+  marketing
+  training
+  insurance
+  // --- Financial ---
+  taxes
+  loan_repayment
+  bank_fees
+  // --- Miscellaneous ---
+  other
+}
+
+enum OrderStatus {
+  pending
+  processing
+  completed
+  cancelled
+}
