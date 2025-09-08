@@ -56,3 +56,22 @@ export const processUploads = async (
 
   return uploadResults;
 };
+
+export const processBufferUploads = async (
+  buffer: Buffer,
+  filename: string,
+  folderName: string
+): Promise<string> => {
+  let uploadResult = "";
+
+  if (!buffer) return uploadResult;
+
+  if ("buffer" in buffer) {
+    const fileName = `${filename}-${Date.now()}`;
+    const result = await uploadToCloudinary(buffer, folderName, fileName);
+
+    uploadResult = result.secure_url;
+  }
+
+  return uploadResult;
+};

@@ -1,9 +1,12 @@
-import express from "express";
-import cors from "cors";
 import cookeParser from "cookie-parser";
+import cors from "cors";
 import "dotenv/config";
-
+import express from "express";
 import authRouter from "./routes/auth";
+import branchRouter from "./routes/branch";
+import businessRouter from "./routes/business";
+import employeeRouter from "./routes/employee";
+import qrRouter from "./routes/qr";
 
 const app = express();
 
@@ -22,6 +25,10 @@ app.use(cookeParser());
 const port = process.env.PORT || 4000;
 
 app.use("/api/auth", authRouter);
+app.use("/api/business", businessRouter);
+app.use("/api/employee", employeeRouter);
+app.use("/api/branch", branchRouter);
+app.use("/api/qr", qrRouter);
 
 app.listen(port, () => {
   console.log(`Server Listening on http://localhost:${port}...`);
