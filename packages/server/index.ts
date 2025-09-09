@@ -7,6 +7,8 @@ import branchRouter from "./routes/branch";
 import businessRouter from "./routes/business";
 import employeeRouter from "./routes/employee";
 import qrRouter from "./routes/qr";
+import stockRouter from "./routes/stock";
+import saleRouter from "./routes/sale";
 
 const app = express();
 
@@ -29,6 +31,8 @@ app.use("/api/business", businessRouter);
 app.use("/api/employee", employeeRouter);
 app.use("/api/branch", branchRouter);
 app.use("/api/qr", qrRouter);
+app.use("/api/stock", stockRouter);
+app.use("/api/sale", saleRouter);
 
 app.listen(port, () => {
   console.log(`Server Listening on http://localhost:${port}...`);

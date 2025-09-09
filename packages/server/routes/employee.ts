@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { addEmployee } from "../controllers/employee";
+import { addEmployee, deleteEmployee } from "../controllers/employee";
 import { authenticate } from "../middlewares/auth";
 import upload from "../middlewares/multer";
 
@@ -15,5 +15,7 @@ router.post(
   ]),
   addEmployee
 );
+router.post("/", addEmployee);
+router.delete("/:employeeId", deleteEmployee);
 
 export default router;

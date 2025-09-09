@@ -2,11 +2,16 @@ import bcrypt from "bcryptjs";
 import { type Request, type Response } from "express";
 import { PrismaClient } from "../generated/prisma";
 import { processUploads } from "../utils/upload";
+import {
+  deleteEmployeeService,
+  getEmployeesService,
+} from "../services/employee";
 
 const prisma = new PrismaClient();
 
 export const addEmployee = async (req: Request, res: Response) => {
   const userId = (req as any).userId as string;
+
   const {
     email,
     password,
@@ -26,6 +31,15 @@ export const addEmployee = async (req: Request, res: Response) => {
   }
 
   try {
+    const folderMap: Record<string, string> = {
+      image: "profiles",
+      idImageFront: "national-ids",
+      idImageBack: "national-ids",
+    };
+
+    const uploadResults = await processUploads(req.files, folderMap);
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const result = await prisma.$transaction(async (tx) => {
       const branch = await tx.branch.findFirst({
         where: {
@@ -50,15 +64,6 @@ export const addEmployee = async (req: Request, res: Response) => {
       if (existingUser) {
         throw new Error(`Employee with email '${email}' already exists`);
       }
-
-      const folderMap: Record<string, string> = {
-        image: "profiles",
-        idImageFront: "national-ids",
-        idImageBack: "national-ids",
-      };
-
-      const uploadResults = await processUploads(req.files, folderMap);
-      const hashedPassword = await bcrypt.hash(password, 10);
 
       const employee = await tx.user.create({
         data: {
@@ -98,5 +103,26 @@ export const addEmployee = async (req: Request, res: Response) => {
       message: error.message || "Failed to add employee",
       error: process.env.NODE_ENV === "development" ? error : undefined,
     });
+  }
+};
+
+export const getEmployees = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    const employees = await getEmployeesService(userId);
+    res.json(employees);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const deleteEmployee = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    const { employeeId } = req.params;
+    const result = await deleteEmployeeService(userId, employeeId as string);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 };

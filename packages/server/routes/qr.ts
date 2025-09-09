@@ -4,6 +4,6 @@ import { authenticate } from "../middlewares/auth";
 
 const router = Router();
 
-router.get("/generate", authenticate, generateCode);
+router.post("/generate", authenticate, generateCode);
 
 export default router;

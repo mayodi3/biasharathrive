@@ -66,7 +66,7 @@ model User {
   branch          Branch?         @relation(fields: [branchId], references: [id])
   branchId        String?
   Sale            Sale[]
-  Order           Order[]
+  orders          Order[]
 }
 
 model Account {
@@ -178,31 +178,48 @@ model Stock {
   wholesalePrice   Float?
   quantity         Int
   lowStockQuantity Int
+  supplier         String?
   itemCode         String?
   itemCodeImageUrl String?
+  isActive         Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  sales    Sale[]
-  branch   Branch? @relation(fields: [branchId], references: [id])
-  branchId String?
-  order    Order?  @relation(fields: [orderId], references: [id])
-  orderId  String?
+  sales      SaleItem[]
+  branch     Branch?     @relation(fields: [branchId], references: [id])
+  branchId   String?
+  orderItems OrderItem[]
+}
+
+model SaleItem {
+  id       String @id @default(cuid())
+  quantity Int
+  price    Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sale    Sale   @relation(fields: [saleId], references: [id])
+  saleId  String
+  stock   Stock  @relation(fields: [stockId], references: [id])
+  stockId String
+
+  @@unique([saleId, stockId])
 }
 
 model Sale {
   id       String   @id @default(cuid())
-  quantity Int
   saleType SaleType @default(retail)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  stock   Stock[]
-  soldBy  User?    @relation(fields: [userId], references: [id])
+  items   SaleItem[]
+  soldBy  User?      @relation(fields: [userId], references: [id])
   userId  String?
   payment Payment?
+  orders  Order[]
 }
 
 model Order {
@@ -212,10 +229,25 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  orderItems Stock[]
+  orderedBy  User?       @relation(fields: [userId], references: [id])
+  orderItems OrderItem[]
+  userId     String?
+  sale       Sale?       @relation(fields: [saleId], references: [id])
+  saleId     String?
+}
 
-  orderedBy User?   @relation(fields: [userId], references: [id])
-  userId    String?
+model OrderItem {
+  id       String @id @default(uuid())
+  orderId  String
+  stockId  String
+  quantity Int
+  price    Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id])
+  stock Stock @relation(fields: [stockId], references: [id])
 }
 
 model Debt {

@@ -1,6 +1,18 @@
 import cloudinary from "../services/cloudinary";
 import { type Request } from "express";
 
+function extractPublicId(url: string): string | null {
+  try {
+    const parts = url.split("/");
+    const fileWithExt = parts[parts.length - 1];
+    const folder = parts[parts.length - 2];
+    const fileName = fileWithExt!.substring(0, fileWithExt!.lastIndexOf("."));
+    return `${folder}/${fileName}`;
+  } catch {
+    return null;
+  }
+}
+
 const uploadToCloudinary = (
   fileBuffer: Buffer,
   folder: string,
@@ -75,3 +87,15 @@ export const processBufferUploads = async (
 
   return uploadResult;
 };
+
+export async function deleteFromCloudinary(url?: string | null) {
+  if (!url) return;
+  const publicId = extractPublicId(url);
+  if (!publicId) return;
+
+  try {
+    await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
+  } catch (err) {
+    console.warn(`Could not delete Cloudinary image: ${url}`, err);
+  }
+}

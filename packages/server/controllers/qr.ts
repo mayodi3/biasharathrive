@@ -3,8 +3,10 @@ import sharp from "sharp";
 import { processBufferUploads } from "../utils/upload";
 import type { Request, Response } from "express";
 
-export const generateCode = async (_req: Request, res: Response) => {
+export const generateCode = async (req: Request, res: Response) => {
   try {
+    const { itemName } = req.body;
+
     const code = Math.floor(1000000000 + Math.random() * 9000000000).toString();
     const qrBuffer = await bwipjs.toBuffer({
       bcid: "qrcode",
@@ -37,7 +39,11 @@ export const generateCode = async (_req: Request, res: Response) => {
       .png()
       .toBuffer();
 
-    const imageUrl = await processBufferUploads(finalImage, code, "qr-codes");
+    const imageUrl = await processBufferUploads(
+      finalImage,
+      itemName,
+      "qr-codes"
+    );
 
     res.status(200).json({ success: true, code, imageUrl });
   } catch (error) {
