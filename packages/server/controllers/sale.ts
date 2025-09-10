@@ -65,7 +65,10 @@ export const makeASale = async (req: Request, res: Response) => {
 };
 
 export const getSales: RequestHandler = async (req, res) => {
-  const { branchId, dateRange } = req.body;
+  const { branchId, dateRange } = (req.body ?? {}) as {
+    branchId?: string;
+    dateRange?: { from?: string; to?: string };
+  };
   const userId = (req as any).userId;
 
   try {
@@ -77,6 +80,17 @@ export const getSales: RequestHandler = async (req, res) => {
       return res
         .status(400)
         .json({ success: false, message: "Invalid business" });
+    }
+
+    const branch = await prisma.branch.findUnique({
+      where: { id: branchId },
+    });
+
+    if (!branch) {
+      return res.status(404).json({
+        success: false,
+        message: "Branch not found or access denied",
+      });
     }
 
     const where: any = {

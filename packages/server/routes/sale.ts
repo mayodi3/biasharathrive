@@ -1,10 +1,11 @@
 import { Router } from "express";
-import { getSales, makeASale } from "../controllers/sale";
+import { makeASale } from "../controllers/sale";
 import { authenticate } from "../middlewares/auth";
 
 const router = Router();
 
-router.post("/", authenticate, makeASale);
-router.get("/", authenticate, getSales);
+router.use(authenticate);
+
+router.post("/", makeASale);
 
 export default router;

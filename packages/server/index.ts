@@ -9,6 +9,8 @@ import employeeRouter from "./routes/employee";
 import qrRouter from "./routes/qr";
 import stockRouter from "./routes/stock";
 import saleRouter from "./routes/sale";
+import expenseRouter from "./routes/expense";
+import debtRouter from "./routes/debt";
 
 const app = express();
 
@@ -33,6 +35,10 @@ app.use("/api/branch", branchRouter);
 app.use("/api/qr", qrRouter);
 app.use("/api/stock", stockRouter);
 app.use("/api/sale", saleRouter);
+app.use("/api/expense", expenseRouter);
+app.use("/api/debt", debtRouter);
+
+console.log(new Date());
 
 app.listen(port, () => {
   console.log(`Server Listening on http://localhost:${port}...`);

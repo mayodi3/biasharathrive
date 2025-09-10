@@ -1,6 +1,10 @@
 import { type Request, type Response } from "express";
 import { PrismaClient } from "../generated/prisma";
-import { deleteFromCloudinary, processUploads } from "../utils/upload";
+import {
+  deleteFromCloudinary,
+  processBufferUploads,
+  processUploads,
+} from "../utils/upload";
 import { getFilterDates } from "../utils/date-helper";
 
 const prisma = new PrismaClient();
@@ -100,21 +104,9 @@ export const addStock = async (req: Request, res: Response) => {
   }
 
   try {
-    const folderMap: Record<string, string> = {
-      image: "stock-images",
-    };
-
-    const uploadResults = await processUploads(req.file, folderMap);
-
-    const branch = await prisma.branch.findFirst({
+    const branch = await prisma.branch.findUnique({
       where: {
         id: branchId,
-        business: {
-          ownerId: userId,
-        },
-      },
-      include: {
-        business: true,
       },
     });
 
@@ -124,6 +116,12 @@ export const addStock = async (req: Request, res: Response) => {
         message: "Branch not found or access denied",
       });
     }
+
+    const folderMap: Record<string, string> = {
+      image: "stock-images",
+    };
+
+    const uploadResults = await processUploads(req.file, folderMap);
 
     const stock = await prisma.stock.create({
       data: {
@@ -172,30 +170,16 @@ export const updateStock = async (req: Request, res: Response) => {
     branchId,
   } = req.body;
 
-  if (!stockId) {
+  if (!stockId && !branchId) {
     return res.status(400).json({
       success: false,
-      message: "Stock ID is required",
+      message: "Stock and Branch ID's is required",
     });
   }
 
   try {
-    const folderMap: Record<string, string> = {
-      image: "stock-images",
-    };
-
-    const uploadResults = await processUploads(req.files, folderMap);
-
-    const stock = await prisma.stock.findFirst({
-      where: {
-        id: stockId,
-        branch: {
-          business: {
-            ownerId: userId,
-          },
-        },
-      },
-      include: { branch: true },
+    const stock = await prisma.stock.findUnique({
+      where: { id: stockId },
     });
 
     if (!stock) {
@@ -204,6 +188,25 @@ export const updateStock = async (req: Request, res: Response) => {
         message: "Stock not found or access denied",
       });
     }
+
+    const branch = await prisma.branch.findUnique({
+      where: { id: branchId },
+    });
+
+    if (!branch) {
+      return res.status(404).json({
+        success: false,
+        message: "Branch not found or access denied",
+      });
+    }
+
+    let uploadResult;
+    if (req.file)
+      uploadResult = await processBufferUploads(
+        req.file.buffer,
+        itemName,
+        "stock-images"
+      );
 
     const updatedStock = await prisma.stock.update({
       where: { id: stockId },
@@ -221,7 +224,7 @@ export const updateStock = async (req: Request, res: Response) => {
           ? Number(lowStockQuantity)
           : stock.lowStockQuantity,
         itemCodeImageUrl: codeImageUrl ?? stock.itemImageUrl,
-        itemImageUrl: uploadResults["image"] ?? stock.itemImageUrl,
+        itemImageUrl: uploadResult ?? stock.itemImageUrl,
         branchId: branchId ?? stock.branchId,
       },
     });

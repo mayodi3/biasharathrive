@@ -52,8 +52,8 @@ export const addExpense = async (req: Request, res: Response) => {
 };
 
 export const getExpenses = async (req: Request, res: Response) => {
-  const { branchId, dateRange } = req.body;
   const userId = (req as any).userId;
+  const { branchId, from, to } = req.params;
 
   try {
     const business = await prisma.business.findFirst({
@@ -66,24 +66,27 @@ export const getExpenses = async (req: Request, res: Response) => {
         .json({ success: false, message: "Invalid business" });
     }
 
-    const where: any = {
-      Branch: {
-        businessId: business.id,
-        ...(branchId && { id: branchId }),
-      },
-    };
+    const where: any = {};
 
-    if (dateRange?.from && dateRange?.to) {
+    if (branchId) {
+      where.branchId = branchId;
+    } else {
+      where.branch = {
+        businessId: business.id,
+      };
+    }
+
+    if (from && to) {
       where.createdAt = {
-        gte: new Date(dateRange.from),
-        lte: new Date(dateRange.to),
+        gte: new Date(from),
+        lte: new Date(to),
       };
     }
 
     const expenses = await prisma.expense.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      include: { Branch: true },
+      include: { branch: true },
     });
 
     return res.status(200).json({

@@ -57,7 +57,7 @@ export const addDebt = async (req: Request, res: Response) => {
 };
 
 export const getDebts = async (req: Request, res: Response) => {
-  const { branchId } = req.body;
+  const { branchId } = req.params;
   const userId = (req as any).userId;
 
   try {
@@ -102,20 +102,31 @@ export const updateDebtPayment = async (req: Request, res: Response) => {
         .json({ success: false, message: "Debt not found" });
     }
 
-    const newAmountPaid = debt.amountPaid + Number(paymentAmount);
-    const newStatus = newAmountPaid >= debt.amount ? "paid" : "pending";
+    if (debt.debtStatus === "pending") {
+      const newAmountPaid = debt.amountPaid + Number(paymentAmount);
+      const newStatus = newAmountPaid >= debt.amount ? "paid" : "pending";
+      const balance = debt.amount - paymentAmount;
 
-    const updatedDebt = await prisma.debt.update({
-      where: { id: debtId },
-      data: {
-        amountPaid: newAmountPaid,
-        debtStatus: newStatus,
-      },
-    });
+      const updatedDebt = await prisma.debt.update({
+        where: { id: debtId },
+        data: {
+          amountPaid: newAmountPaid,
+          debtStatus: newStatus,
+          balance,
+        },
+      });
 
-    res
-      .status(200)
-      .json({ success: true, message: "Payment recorded", debt: updatedDebt });
+      res.status(200).json({
+        success: true,
+        message: "Payment recorded",
+        debt: updatedDebt,
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: "Debt payment completed",
+      });
+    }
   } catch (error) {
     console.error("Failed to update debt:", error);
     res.status(500).json({ success: false, message: "Failed to update debt" });

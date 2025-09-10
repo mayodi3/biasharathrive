@@ -10,8 +10,8 @@ import {
 const router = Router();
 
 router.post("/", addDebt);
-router.post("/list", getDebts);
-router.put("/payment", updateDebtPayment);
+router.get("/list", getDebts);
+router.patch("/payment", updateDebtPayment);
 router.get("/customer", getCustomerOrders);
 router.delete("/", deleteDebt);
 
