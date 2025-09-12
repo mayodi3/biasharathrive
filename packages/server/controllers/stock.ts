@@ -11,7 +11,7 @@ const prisma = new PrismaClient();
 
 export const getBranchStockItems = async (req: Request, res: Response) => {
   const userId = (req as any).userId as string;
-  const { branchId } = req.body;
+  const { id: branchId } = req.params;
 
   try {
     const business = await prisma.business.findFirst({
@@ -35,37 +35,44 @@ export const getBranchStockItems = async (req: Request, res: Response) => {
 
 export const getBusinessStockItems = async (req: Request, res: Response) => {
   const userId = (req as any).userId as string;
+  const { id: businessId } = req.params;
 
   try {
-    const businesses = await prisma.business.findMany({
-      where: { ownerId: userId },
-      include: {
-        branches: {
-          include: {
-            stocks: true,
+    let stockItems;
+    if (businessId) {
+      stockItems = await prisma.stock.findMany({
+        where: { branch: { businessId: businessId } },
+      });
+    } else {
+      const businesses = await prisma.business.findMany({
+        where: { ownerId: userId },
+        include: {
+          branches: {
+            include: {
+              stocks: true,
+            },
           },
         },
-      },
-    });
-
-    if (!businesses.length) {
-      return res.status(404).json({
-        success: false,
-        message: "No businesses found for this user",
       });
-    }
 
-    const stockItems = businesses.flatMap((biz) =>
-      biz.branches.flatMap((branch) =>
-        branch.stocks.map((stock) => ({
-          ...stock,
-          branchId: branch.id,
-          branchName: branch.name,
-          businessId: biz.id,
-          businessName: biz.name,
-        }))
-      )
-    );
+      if (!businesses.length) {
+        return res.status(404).json({
+          success: false,
+          message: "No businesses found for this user",
+        });
+      }
+      stockItems = businesses.flatMap((biz) =>
+        biz.branches.flatMap((branch) =>
+          branch.stocks.map((stock) => ({
+            ...stock,
+            branchId: branch.id,
+            branchName: branch.name,
+            businessId: biz.id,
+            businessName: biz.name,
+          }))
+        )
+      );
+    }
 
     res.status(200).json({
       success: true,
@@ -154,10 +161,9 @@ export const addStock = async (req: Request, res: Response) => {
 };
 
 export const updateStock = async (req: Request, res: Response) => {
-  const userId = (req as any).userId as string;
+  const { id: stockId } = req.params;
 
   const {
-    stockId,
     itemName,
     buyingPrice,
     sellingPrice,
@@ -357,11 +363,7 @@ export const getStockItemsWithQrCodes = async (req: Request, res: Response) => {
     const stockItems = await prisma.stock.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
-      include: {
-        branch: {
-          select: { id: true, name: true, businessId: true },
-        },
-      },
+      select: { itemCodeImageUrl: true },
     });
 
     return res.status(200).json({

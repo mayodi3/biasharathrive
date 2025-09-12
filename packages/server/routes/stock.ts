@@ -14,10 +14,11 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get("/business", getBusinessStockItems);
-router.post("/branch", getBranchStockItems);
+router.get("/businesses", getBusinessStockItems);
+router.get("/business/:id", getBusinessStockItems);
+router.get("/branch/:id", getBranchStockItems);
 router.post("/add", upload.single("image"), addStock);
-router.patch("/update", upload.single("image"), updateStock);
+router.patch("/update/:id", upload.single("image"), updateStock);
 router.delete("/delete/:stockId", deleteStock);
 router.post("/codes", getStockItemsWithQrCodes);
 

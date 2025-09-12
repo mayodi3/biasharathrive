@@ -10,8 +10,10 @@ export function getFilterDates(
 
   switch (actualFilter) {
     case "today":
-      startDate = new Date(new Date().setHours(0, 0, 0, 0));
-      endDate = new Date(new Date().setHours(23, 59, 59, 999));
+      startDate = new Date(today);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(today);
+      endDate.setHours(23, 59, 59, 999);
       break;
     case "thisWeek":
       const currentDayOfWeek = today.getDay();
