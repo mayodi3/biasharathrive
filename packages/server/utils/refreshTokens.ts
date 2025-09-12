@@ -1,6 +1,5 @@
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "../generated/prisma";
-import { generateRefreshToken, verifyRefreshToken } from "./jwt";
 
 const prisma = new PrismaClient();
 

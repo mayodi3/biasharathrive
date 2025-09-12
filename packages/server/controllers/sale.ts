@@ -1,5 +1,7 @@
 import type { Request, RequestHandler, Response } from "express";
 import { PrismaClient } from "../generated/prisma";
+import { findStockById, recordPaymentAfterSale, recordSale } from "../db/sale";
+import { getSellingPriceByStock } from "../utils/utils";
 
 const prisma = new PrismaClient();
 
@@ -8,49 +10,18 @@ export const makeASale = async (req: Request, res: Response) => {
   const userId = (req as any).userId;
 
   try {
-    const stock = await prisma.stock.findUnique({ where: { id: stockId } });
+    const stock = await findStockById(stockId);
     if (!stock || stock.quantity < quantity) {
       return res
         .status(400)
         .json({ success: false, message: "Not enough stock" });
     }
 
-    const sale = await prisma.$transaction(async (tx) => {
-      const sale = await tx.sale.create({
-        data: {
-          saleType: saleType || "retail",
-          userId: userId,
-        },
-      });
+    const sale = await recordSale(stock.id, quantity, saleType, userId);
 
-      const sellingPrice =
-        saleType === "retail" ? stock.sellingPrice : stock.wholesalePrice!;
+    const sellingPrice = getSellingPriceByStock(saleType, stock);
 
-      await tx.saleItem.create({
-        data: {
-          saleId: sale.id,
-          stockId,
-          quantity,
-          price: sellingPrice,
-        },
-      });
-
-      await tx.stock.update({
-        where: { id: stockId },
-        data: { quantity: { decrement: quantity } },
-      });
-
-      return sale;
-    });
-
-    await prisma.payment.create({
-      data: {
-        amount: quantity * stock.sellingPrice,
-        paymentMethod: paymentMethod || "cash",
-        status: "paid",
-        saleId: sale.id,
-      },
-    });
+    await recordPaymentAfterSale(sellingPrice, quantity, paymentMethod, sale);
 
     res
       .status(200)
