@@ -1,5 +1,11 @@
 import { Router } from "express";
-import { addExpense, getExpenses } from "../controllers/expense";
+import {
+  addExpense,
+  deleteExpense,
+  getExpenses,
+  getExpensesForBusiness,
+  updateExpense,
+} from "../controllers/expense";
 import { authenticate } from "../middlewares/auth";
 
 const router = Router();
@@ -7,6 +13,9 @@ const router = Router();
 router.use(authenticate);
 
 router.post("/", addExpense);
-router.get("/list", getExpenses);
+router.get("/list", getExpensesForBusiness);
+router.get("/", getExpenses);
+router.patch("/:id", updateExpense);
+router.delete("/:id", deleteExpense);
 
 export default router;

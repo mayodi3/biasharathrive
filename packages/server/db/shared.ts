@@ -13,5 +13,5 @@ export const getBranchById = async (branchId: string) =>
 export const getBusinessesOwnedByUser = async (ownerId: string) =>
   prismaClient.business.findMany({
     where: { ownerId },
-    select: { id: true },
+    include: { branches: true },
   });
