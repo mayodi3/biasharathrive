@@ -58,15 +58,17 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  accounts        Account[]
-  sessions        Session[]
-  authenticator   Authenticator[]
-  refreshTokens   RefreshToken[]
-  ownedBusinesses Business[]
-  branch          Branch?         @relation(fields: [branchId], references: [id])
-  branchId        String?
-  Sale            Sale[]
-  orders          Order[]
+  accounts         Account[]
+  sessions         Session[]
+  authenticator    Authenticator[]
+  refreshTokens    RefreshToken[]
+  ownedBusinesses  Business[]
+  branch           Branch?         @relation(fields: [branchId], references: [id])
+  branchId         String?
+  Sale             Sale[]
+  orders           Order[]
+  refundsRequested Refund[]        @relation("refundsRequested")
+  refundsProcessed Refund[]        @relation("refundsProcessed")
 }
 
 model Account {
@@ -200,10 +202,11 @@ model SaleItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  sale    Sale   @relation(fields: [saleId], references: [id])
+  sale    Sale     @relation(fields: [saleId], references: [id])
   saleId  String
-  stock   Stock  @relation(fields: [stockId], references: [id])
+  stock   Stock    @relation(fields: [stockId], references: [id])
   stockId String
+  refunds Refund[]
 
   @@unique([saleId, stockId])
 }
@@ -215,11 +218,28 @@ model Sale {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  items   SaleItem[]
-  soldBy  User?      @relation(fields: [userId], references: [id])
-  userId  String?
-  payment Payment?
-  orders  Order[]
+  saleItems SaleItem[]
+  soldBy    User?      @relation(fields: [userId], references: [id])
+  userId    String?
+  payment   Payment?
+  orders    Order[]
+}
+
+model Refund {
+  id            String       @id @default(cuid())
+  amount        Float
+  quantity      Int?
+  reason        String?
+  status        RefundStatus @default(pending)
+  requestedBy   User?        @relation("refundsRequested", fields: [requestedById], references: [id], onDelete: SetNull)
+  requestedById String?
+  processedBy   User?        @relation("refundsProcessed", fields: [processedById], references: [id], onDelete: SetNull)
+  processedById String?
+  saleItem      SaleItem     @relation(fields: [saleItemId], references: [id], onDelete: Cascade)
+  saleItemId    String
+  processedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
 
 model Order {
@@ -282,6 +302,12 @@ model Expense {
   branchId String?
 }
 
+enum RefundStatus {
+  pending
+  approved
+  rejected
+}
+
 enum DebtType {
   lend
   borrow
@@ -320,6 +346,7 @@ enum PaymentStatus {
   initiated
   paid
   failed
+  refunded
   cancelled
 }
 

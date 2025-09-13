@@ -1,9 +1,15 @@
 import type { Request, RequestHandler, Response } from "express";
-import { PrismaClient } from "../generated/prisma";
-import { findStockById, recordPaymentAfterSale, recordSale } from "../db/sale";
+import {
+  approveRefund,
+  createRefundRequest,
+  findStockById,
+  getSaleItems,
+  recordPaymentAfterSale,
+  recordSale,
+  rejectRefund,
+} from "../db/sale";
+import { getBranchById, getBusinsessById } from "../db/shared";
 import { getSellingPriceByStock } from "../utils/utils";
-
-const prisma = new PrismaClient();
 
 export const makeASale = async (req: Request, res: Response) => {
   const { stockId, quantity, saleType, paymentMethod } = req.body;
@@ -35,43 +41,52 @@ export const makeASale = async (req: Request, res: Response) => {
   }
 };
 
-export const getSales: RequestHandler = async (req, res) => {
-  const { branchId, dateRange } = (req.body ?? {}) as {
+export const getSales = async (req: Request, res: Response) => {
+  const { branchId, dateRange, businessId } = (req.body ?? {}) as {
     branchId?: string;
     dateRange?: { from?: string; to?: string };
+    businessId?: string;
   };
   const userId = (req as any).userId;
 
   try {
-    const business = await prisma.business.findFirst({
-      where: { ownerId: userId },
-    });
+    let business: any;
+    let where: any = {};
 
-    if (!business) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid business" });
-    }
+    if (businessId) {
+      business = getBusinsessById(businessId);
 
-    const branch = await prisma.branch.findUnique({
-      where: { id: branchId },
-    });
+      if (!business) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid business" });
+      }
 
-    if (!branch) {
-      return res.status(404).json({
-        success: false,
-        message: "Branch not found or access denied",
-      });
-    }
-
-    const where: any = {
-      stock: {
-        branch: {
-          businessId: business.id,
-          ...(branchId && { id: branchId }),
+      where = {
+        stock: {
+          branch: {
+            businessId: business.id,
+          },
         },
-      },
-    };
+      };
+    } else if (branchId) {
+      const branch = await getBranchById(branchId);
+
+      if (!branch) {
+        return res.status(404).json({
+          success: false,
+          message: "Branch not found or access denied",
+        });
+      }
+
+      where = {
+        stock: {
+          branch: {
+            ...(branchId && { id: branchId }),
+          },
+        },
+      };
+    }
 
     if (dateRange?.from && dateRange?.to) {
       where.createdAt = {
@@ -80,13 +95,7 @@ export const getSales: RequestHandler = async (req, res) => {
       };
     }
 
-    const sales = await prisma.saleItem.findMany({
-      where,
-      include: {
-        stock: { include: { branch: true } },
-        sale: { include: { soldBy: true, payment: true } },
-      },
-    });
+    const sales = await getSaleItems(where);
 
     res.status(200).json({
       success: true,
@@ -98,5 +107,43 @@ export const getSales: RequestHandler = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Failed to get sales" });
+  }
+};
+
+export const requestRefund: RequestHandler = async (req, res) => {
+  const { saleItemId, reason, quantity } = req.body;
+  const userId = (req as any).userId;
+  try {
+    const refund = await createRefundRequest(
+      saleItemId,
+      userId,
+      reason,
+      quantity
+    );
+    res.status(201).json({ success: true, refund });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+export const approveRefundHandler: RequestHandler = async (req, res) => {
+  const { refundId } = req.body;
+  const approverId = (req as any).userId;
+  try {
+    const result = await approveRefund(refundId, approverId);
+    res.status(200).json({ success: true, result });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+export const rejectRefundHandler: RequestHandler = async (req, res) => {
+  const { refundId, reason } = req.body;
+  const approverId = (req as any).userId;
+  try {
+    const updated = await rejectRefund(refundId, approverId, reason);
+    res.status(200).json({ success: true, refund: updated });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
   }
 };
