@@ -9,3 +9,9 @@ export const getBranchById = async (branchId: string) =>
   prismaClient.branch.findUnique({
     where: { id: branchId },
   });
+
+export const getBusinessesOwnedByUser = async (ownerId: string) =>
+  prismaClient.business.findMany({
+    where: { ownerId },
+    select: { id: true },
+  });

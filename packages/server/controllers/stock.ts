@@ -1,27 +1,28 @@
 import { type Request, type Response } from "express";
-import { PrismaClient } from "../generated/prisma";
+import { getBranchById, getBusinessesOwnedByUser } from "../db/shared";
+import {
+  deleteStockById,
+  findStockById,
+  findStocksByBranchId,
+  findStocksByBusinessId,
+  getBusinessesesAndStocksByOwnerId,
+  getStockItemsQrCodes,
+  performSoftDeleteOnStock,
+  recordStock,
+  updateStockInDB,
+} from "../db/stock";
+import { getFilterDates } from "../utils/date-helper";
 import {
   deleteFromCloudinary,
   processBufferUploads,
   processUploads,
 } from "../utils/upload";
-import { getFilterDates } from "../utils/date-helper";
-
-const prisma = new PrismaClient();
 
 export const getBranchStockItems = async (req: Request, res: Response) => {
-  const userId = (req as any).userId as string;
   const { id: branchId } = req.params;
 
   try {
-    const business = await prisma.business.findFirst({
-      where: { ownerId: userId },
-    });
-    if (!business) throw new Error("No business found for the user");
-
-    const stockItems = await prisma.stock.findMany({
-      where: { branchId: branchId },
-    });
+    const stockItems = await findStocksByBranchId(branchId!);
 
     res.status(200).json({ success: true, stockItems });
   } catch (error) {
@@ -40,20 +41,9 @@ export const getBusinessStockItems = async (req: Request, res: Response) => {
   try {
     let stockItems;
     if (businessId) {
-      stockItems = await prisma.stock.findMany({
-        where: { branch: { businessId: businessId } },
-      });
+      stockItems = await findStocksByBusinessId(businessId);
     } else {
-      const businesses = await prisma.business.findMany({
-        where: { ownerId: userId },
-        include: {
-          branches: {
-            include: {
-              stocks: true,
-            },
-          },
-        },
-      });
+      const businesses = await getBusinessesesAndStocksByOwnerId(userId);
 
       if (!businesses.length) {
         return res.status(404).json({
@@ -88,8 +78,6 @@ export const getBusinessStockItems = async (req: Request, res: Response) => {
 };
 
 export const addStock = async (req: Request, res: Response) => {
-  const userId = (req as any).userId as string;
-
   const {
     itemName,
     buyingPrice,
@@ -111,11 +99,7 @@ export const addStock = async (req: Request, res: Response) => {
   }
 
   try {
-    const branch = await prisma.branch.findUnique({
-      where: {
-        id: branchId,
-      },
-    });
+    const branch = await getBranchById(branchId);
 
     if (!branch) {
       return res.status(403).json({
@@ -130,21 +114,21 @@ export const addStock = async (req: Request, res: Response) => {
 
     const uploadResults = await processUploads(req.file, folderMap);
 
-    const stock = await prisma.stock.create({
-      data: {
-        branchId,
-        itemName,
-        buyingPrice: Number(buyingPrice),
-        sellingPrice: Number(sellingPrice),
-        wholesalePrice: Number(wholesalePrice),
-        quantity: Number(quantity),
-        itemCode,
-        supplier,
-        lowStockQuantity: Number(lowStockQuantity),
-        itemCodeImageUrl: codeImageUrl || null,
-        itemImageUrl: uploadResults["image"] || null,
-      },
-    });
+    const dataToAdd = {
+      branchId,
+      itemName,
+      buyingPrice: Number(buyingPrice),
+      sellingPrice: Number(sellingPrice),
+      wholesalePrice: Number(wholesalePrice),
+      quantity: Number(quantity),
+      itemCode,
+      supplier,
+      lowStockQuantity: Number(lowStockQuantity),
+      itemCodeImageUrl: codeImageUrl || null,
+      itemImageUrl: uploadResults["image"] || null,
+    };
+
+    const stock = await recordStock(dataToAdd);
 
     return res.status(201).json({
       success: true,
@@ -184,9 +168,7 @@ export const updateStock = async (req: Request, res: Response) => {
   }
 
   try {
-    const stock = await prisma.stock.findUnique({
-      where: { id: stockId },
-    });
+    const stock = await findStockById(stockId!);
 
     if (!stock) {
       return res.status(404).json({
@@ -195,9 +177,7 @@ export const updateStock = async (req: Request, res: Response) => {
       });
     }
 
-    const branch = await prisma.branch.findUnique({
-      where: { id: branchId },
-    });
+    const branch = await getBranchById(branchId);
 
     if (!branch) {
       return res.status(404).json({
@@ -214,26 +194,25 @@ export const updateStock = async (req: Request, res: Response) => {
         "stock-images"
       );
 
-    const updatedStock = await prisma.stock.update({
-      where: { id: stockId },
-      data: {
-        itemName: itemName ?? stock.itemName,
-        buyingPrice: buyingPrice ? Number(buyingPrice) : stock.buyingPrice,
-        sellingPrice: sellingPrice ? Number(sellingPrice) : stock.sellingPrice,
-        wholesalePrice: wholesalePrice
-          ? Number(wholesalePrice)
-          : stock.wholesalePrice,
-        quantity: quantity ? Number(quantity) : stock.quantity,
-        itemCode: itemCode ?? stock.itemCode,
-        supplier: supplier ?? stock.supplier,
-        lowStockQuantity: lowStockQuantity
-          ? Number(lowStockQuantity)
-          : stock.lowStockQuantity,
-        itemCodeImageUrl: codeImageUrl ?? stock.itemImageUrl,
-        itemImageUrl: uploadResult ?? stock.itemImageUrl,
-        branchId: branchId ?? stock.branchId,
-      },
-    });
+    const dataToUpdate = {
+      itemName: itemName ?? stock.itemName,
+      buyingPrice: buyingPrice ? Number(buyingPrice) : stock.buyingPrice,
+      sellingPrice: sellingPrice ? Number(sellingPrice) : stock.sellingPrice,
+      wholesalePrice: wholesalePrice
+        ? Number(wholesalePrice)
+        : stock.wholesalePrice,
+      quantity: quantity ? Number(quantity) : stock.quantity,
+      itemCode: itemCode ?? stock.itemCode,
+      supplier: supplier ?? stock.supplier,
+      lowStockQuantity: lowStockQuantity
+        ? Number(lowStockQuantity)
+        : stock.lowStockQuantity,
+      itemCodeImageUrl: codeImageUrl ?? stock.itemImageUrl,
+      itemImageUrl: uploadResult ?? stock.itemImageUrl,
+      branchId: branchId ?? stock.branchId,
+    };
+
+    const updatedStock = await updateStockInDB(stock.id, dataToUpdate);
 
     return res.status(200).json({
       success: true,
@@ -250,7 +229,6 @@ export const updateStock = async (req: Request, res: Response) => {
 };
 
 export const deleteStock = async (req: Request, res: Response) => {
-  const userId = (req as any).userId as string;
   const { stockId } = req.params;
   const { softDelete = "true" } = req.query;
 
@@ -262,17 +240,7 @@ export const deleteStock = async (req: Request, res: Response) => {
   }
 
   try {
-    const stock = await prisma.stock.findFirst({
-      where: {
-        id: stockId,
-        branch: {
-          business: {
-            ownerId: userId,
-          },
-        },
-      },
-      include: { branch: true },
-    });
+    const stock = await findStockById(stockId);
 
     if (!stock) {
       return res.status(404).json({
@@ -282,10 +250,7 @@ export const deleteStock = async (req: Request, res: Response) => {
     }
 
     if (softDelete === "true") {
-      await prisma.stock.update({
-        where: { id: stockId },
-        data: { isActive: false },
-      });
+      await performSoftDeleteOnStock(stockId);
 
       return res.status(200).json({
         success: true,
@@ -295,7 +260,7 @@ export const deleteStock = async (req: Request, res: Response) => {
       await deleteFromCloudinary(stock.itemImageUrl);
       await deleteFromCloudinary(stock.itemCodeImageUrl);
 
-      await prisma.stock.delete({ where: { id: stockId } });
+      await deleteStockById(stockId);
 
       return res.status(200).json({
         success: true,
@@ -321,10 +286,7 @@ export const getStockItemsWithQrCodes = async (req: Request, res: Response) => {
   };
 
   try {
-    const businesses = await prisma.business.findMany({
-      where: { ownerId: userId },
-      select: { id: true },
-    });
+    const businesses = await getBusinessesOwnedByUser(userId);
 
     if (businesses.length === 0) {
       return res.status(404).json({
@@ -360,11 +322,7 @@ export const getStockItemsWithQrCodes = async (req: Request, res: Response) => {
       whereClause.createdAt = dateFilter;
     }
 
-    const stockItems = await prisma.stock.findMany({
-      where: whereClause,
-      orderBy: { createdAt: "desc" },
-      select: { itemCodeImageUrl: true },
-    });
+    const stockItems = await getStockItemsQrCodes(whereClause);
 
     return res.status(200).json({
       success: true,

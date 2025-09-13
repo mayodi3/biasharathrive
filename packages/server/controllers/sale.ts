@@ -2,7 +2,6 @@ import type { Request, RequestHandler, Response } from "express";
 import {
   approveRefund,
   createRefundRequest,
-  findStockById,
   getSaleItems,
   recordPaymentAfterSale,
   recordSale,
@@ -10,6 +9,7 @@ import {
 } from "../db/sale";
 import { getBranchById, getBusinsessById } from "../db/shared";
 import { getSellingPriceByStock } from "../utils/utils";
+import { findStockById } from "../db/stock";
 
 export const makeASale = async (req: Request, res: Response) => {
   const { stockId, quantity, saleType, paymentMethod } = req.body;

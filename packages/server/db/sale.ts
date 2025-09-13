@@ -3,9 +3,7 @@ import type { PaymentMethod, Sale } from "../generated/prisma";
 import { RefundStatus } from "../generated/prisma";
 import { PaymentStatus } from "../generated/prisma";
 import { getSellingPriceByStock } from "../utils/utils";
-
-export const findStockById = async (stockId: string) =>
-  await prismaClient.stock.findUnique({ where: { id: stockId } });
+import { findStockById } from "./stock";
 
 export const recordSale = async (
   stockId: string,
